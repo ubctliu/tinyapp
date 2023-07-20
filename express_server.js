@@ -17,6 +17,10 @@ const generateRandomString = () => {
   return randomURL.length > GENERATE_RANDOM_STRING_LENGTH ? randomURL.substring(0, GENERATE_RANDOM_STRING_LENGTH) : randomURL;
 };
 
+app.get("/u/:id", (req, res) => {
+  const longURL = urlDatabase[req.params.id];
+  res.redirect(longURL);
+});
 
 app.get("/", (req, res) => {
   res.send("Hello!");
@@ -45,8 +49,12 @@ app.get("/hello", (req, res) => {
 });
 
 app.post("/urls", (req, res) => {
-  console.log(req.body); // Log the POST request body to the console
-  res.send("Ok"); // Respond with 'Ok' (we will replace this)
+  const shortURL = generateRandomString();
+  const longURL = req.body.longURL;
+
+  urlDatabase[shortURL] = longURL; // saves the longURL & shortURL
+  const templateVars = { id: shortURL, longURL: longURL };
+  res.render("urls_show", templateVars);
 });
 
 app.listen(PORT, () => {
