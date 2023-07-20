@@ -17,11 +17,6 @@ const generateRandomString = () => {
   return randomURL.length > GENERATE_RANDOM_STRING_LENGTH ? randomURL.substring(0, GENERATE_RANDOM_STRING_LENGTH) : randomURL;
 };
 
-app.get("/u/:id", (req, res) => {
-  const longURL = urlDatabase[req.params.id];
-  res.redirect(longURL);
-});
-
 app.get("/", (req, res) => {
   res.send("Hello!");
 });
@@ -40,6 +35,11 @@ app.get("/urls", (req, res) => {
   res.render("urls_index", templateVars);
 });
 
+app.get("/u/:id", (req, res) => {
+  const longURL = urlDatabase[req.params.id];
+  res.redirect(longURL);
+});
+
 app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
 });
@@ -48,13 +48,19 @@ app.get("/hello", (req, res) => {
   res.send("<html><body>Hello <b>World</b></body></html>\n");
 });
 
+app.post("/urls/:id/delete", (req, res) => {
+  const id = req.params.id;
+  delete urlDatabase[id];
+  res.redirect("/urls");
+});
+
 app.post("/urls", (req, res) => {
   const shortURL = generateRandomString();
   const longURL = req.body.longURL;
 
   urlDatabase[shortURL] = longURL; // saves the longURL & shortURL
-  const templateVars = { id: shortURL, longURL: longURL };
-  res.render("urls_show", templateVars);
+
+  res.redirect(`/urls/${shortURL}`);
 });
 
 app.listen(PORT, () => {
