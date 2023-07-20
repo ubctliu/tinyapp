@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
+const GENERATE_RANDOM_STRING_LENGTH = 6;
 
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
@@ -9,6 +10,13 @@ const urlDatabase = {
   "b2xVn2": "http://www.lighthouselabs.ca",
   "9sm5xK": "http://www.google.com"
 };
+
+// Generates a random 6 digit alpha-numeric string
+const generateRandomString = () => {
+  const randomURL = Math.random().toString(36).slice(2);
+  return randomURL.length > GENERATE_RANDOM_STRING_LENGTH ? randomURL.substring(0, GENERATE_RANDOM_STRING_LENGTH) : randomURL;
+};
+
 
 app.get("/", (req, res) => {
   res.send("Hello!");
