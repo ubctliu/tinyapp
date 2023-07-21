@@ -58,7 +58,7 @@ app.post("/urls/:id", (req, res) => {
   const id = req.params.id;
   const longURL = req.body.longURL;
   urlDatabase[id] = longURL;
-  res.redirect(`/urls/`);
+  res.redirect('/urls/');
 });
 
 app.post("/urls", (req, res) => {
@@ -68,6 +68,12 @@ app.post("/urls", (req, res) => {
   urlDatabase[shortURL] = longURL; // saves the longURL & shortURL
 
   res.redirect(`/urls/${shortURL}`);
+});
+
+app.post("/login", (req, res) => {
+  const cookie = req.body.username;
+  res.cookie('name', cookie);
+  res.redirect('/urls');
 });
 
 app.listen(PORT, () => {
