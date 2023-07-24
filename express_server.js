@@ -14,6 +14,8 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com"
 };
 
+const users = {};
+
 // Generates a random 6 digit alpha-numeric string
 const generateRandomString = () => {
   const randomURL = Math.random().toString(36).slice(2);
@@ -25,28 +27,28 @@ app.get("/", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
-  const username = req.cookies ? req.cookies["username"] : undefined;
+  const user = req.cookies ? users[req.cookies["user_id"]] : undefined;
   const templateVars = {
-    username: username
+    user
   };
   res.render("urls_new", templateVars);
 });
 
 app.get("/urls/:id", (req, res) => {
-  const username = req.cookies ? req.cookies["username"] : undefined;
+  const user = req.cookies ? users[req.cookies["user_id"]] : undefined;
   const templateVars = {
+    user,
     id: req.params.id,
-    longURL: urlDatabase[req.params.id],
-    username: username
+    longURL: urlDatabase[req.params.id]
   };
   res.render("urls_show", templateVars);
 });
 
 app.get("/urls", (req, res) => {
-  const username = req.cookies ? req.cookies["username"] : undefined;
+  const user = req.cookies ? users[req.cookies["user_id"]] : undefined;
   const templateVars = {
-    urls: urlDatabase,
-    username: username
+    user,
+    urls: urlDatabase
   };
   res.render("urls_index", templateVars);
 });
@@ -69,6 +71,12 @@ app.get("/register", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
+  const id = generateRandomString();
+  const email = req.body.email;
+  const password = req.body.password;
+  const cookie = id;
+  users[id] = {id, email, password};
+  res.cookie('user_id', cookie);
   res.redirect('/urls');
 });
 
