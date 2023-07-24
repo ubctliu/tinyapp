@@ -22,6 +22,16 @@ const generateRandomString = () => {
   return randomURL.length > GENERATE_RANDOM_STRING_LENGTH ? randomURL.substring(0, GENERATE_RANDOM_STRING_LENGTH) : randomURL;
 };
 
+const getUserByEmail = (email) => {
+  for (const user in users) {
+    if (Object.prototype.hasOwnProperty.call(users[user], "email") && users[user].email === email) {
+      return users[user];
+    }
+  }
+
+  return null;
+};
+
 app.get("/", (req, res) => {
   res.send("Hello!");
 });
@@ -71,9 +81,21 @@ app.get("/register", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
+  console.log(users);
   const id = generateRandomString();
   const email = req.body.email;
   const password = req.body.password;
+
+  if (email === "" || id === "") {
+    res.status(400).send("Fields cannot be blank.");
+    return;
+  }
+
+  if (getUserByEmail(email) !== null) {
+    res.status(400).send("Email already in use!");
+    return;
+  }
+
   const cookie = id;
   users[id] = {id, email, password};
   res.cookie('user_id', cookie);
