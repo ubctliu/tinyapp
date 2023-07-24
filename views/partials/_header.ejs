@@ -16,24 +16,18 @@
       <div class="navbar-nav">
         <a class="nav-item nav-link" href="/urls">My URLs</a>
         <a class="nav-item nav-link" href="/urls/new">Create New URL</a>
+      </div>
         <% if (user && user.hasOwnProperty("email")) { %>
-          <p>Logged in as <%= user.email %> </p>
-          <div class="float-right">
+          <p class="ml-auto mr-4">Logged in as <%= user.email %> </p>
           <form method="POST" action="/logout">
             <button type="submit" class="btn btn-outline-dark">Logout</button>
           </form>
-        </div>
         <%} else { %>
-          <div class="form-inline">
-            <form method="GET" action="/register">
-              <button type="submit" class="btn btn-outline-dark">Register</button>
-            </form>
-            <form method="GET" action="/login">
-              <button type="submit" class="btn btn-outline-dark">Login</button>
-            </form>
+          <div class="navbar-nav ml-auto">
+            <a class="nav-item nav-link" href="/login">Login</a>
+            <a class="nav-item nav-link" href="/register">Register</a>
           </div>
         <% } %>
       </div>
-    </div>
   </nav>
 </header>

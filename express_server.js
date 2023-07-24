@@ -86,11 +86,19 @@ app.get("/hello", (req, res) => {
 });
 
 app.get("/register", (req, res) => {
-  res.render("register");
+  const user = req.cookies ? users[req.cookies["user_id"]] : undefined;
+  const templateVars = {
+    user
+  };
+  res.render("register", templateVars);
 });
 
 app.get("/login", (req, res) => {
-  res.render("login");
+  const user = req.cookies ? users[req.cookies["user_id"]] : undefined;
+  const templateVars = {
+    user
+  };
+  res.render("login", templateVars);
 });
 
 app.post("/register", (req, res) => {
@@ -98,7 +106,7 @@ app.post("/register", (req, res) => {
   const id = generateRandomString();
   const email = req.body.email;
   const password = req.body.password;
-
+  
   if (email === "" || id === "") {
     res.status(400).send("Fields cannot be blank.");
     return;
@@ -108,7 +116,7 @@ app.post("/register", (req, res) => {
     res.status(400).send("Email already in use!");
     return;
   }
-
+  
   const cookie = id;
   users[id] = {id, email, password};
   res.cookie('user_id', cookie);
@@ -119,13 +127,25 @@ app.post("/login", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
   const user = getUserByEmail(email);
-  if (verifyPassword(user, password)) {
-    res.render('urls');
-  } else {
-    res.status(401).send("Incorrect email or password.");
-    return;
+  if (user !== null) {
+    if (verifyPassword(user, password)) {
+      const cookie = user.id;
+      res.cookie('user_id', cookie);
+      res.redirect('/urls');
+    } else {
+      res.status(403).send("Incorrect password!");
+      return;
+    }
   }
+  res.status(403).send("No account found with that email");
+  return;
 });
+
+app.post("/logout", (req, res) => {
+  res.clearCookie('user_id');
+  res.redirect('/login');
+});
+
 
 app.post("/urls/:id/delete", (req, res) => {
   const id = req.params.id;
@@ -137,27 +157,16 @@ app.post("/urls/:id", (req, res) => {
   const id = req.params.id;
   const longURL = req.body.longURL;
   urlDatabase[id] = longURL;
-  res.redirect('/urls/');
+  res.redirect("/urls");
 });
 
 app.post("/urls", (req, res) => {
   const shortURL = generateRandomString();
   const longURL = req.body.longURL;
-
+  
   urlDatabase[shortURL] = longURL; // saves the longURL & shortURL
-
+  
   res.redirect(`/urls/${shortURL}`);
-});
-
-app.post("/login", (req, res) => {
-  const cookie = req.body.username;
-  res.cookie('username', cookie);
-  res.redirect('/urls');
-});
-
-app.post("/logout", (req, res) => {
-  res.clearCookie('user_id');
-  res.redirect('/urls');
 });
 
 app.listen(PORT, () => {
