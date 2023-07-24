@@ -32,6 +32,15 @@ const getUserByEmail = (email) => {
   return null;
 };
 
+const verifyPassword = (user, password) => {
+  if (user !== null) {
+    if (password === user.password) {
+      return true;
+    }
+  }
+  return false;
+};
+
 app.get("/", (req, res) => {
   res.send("Hello!");
 });
@@ -80,6 +89,10 @@ app.get("/register", (req, res) => {
   res.render("register");
 });
 
+app.get("/login", (req, res) => {
+  res.render("login");
+});
+
 app.post("/register", (req, res) => {
   console.log(users);
   const id = generateRandomString();
@@ -100,6 +113,18 @@ app.post("/register", (req, res) => {
   users[id] = {id, email, password};
   res.cookie('user_id', cookie);
   res.redirect('/urls');
+});
+
+app.post("/login", (req, res) => {
+  const email = req.body.email;
+  const password = req.body.password;
+  const user = getUserByEmail(email);
+  if (verifyPassword(user, password)) {
+    res.render('urls');
+  } else {
+    res.status(401).send("Incorrect email or password.");
+    return;
+  }
 });
 
 app.post("/urls/:id/delete", (req, res) => {
@@ -131,7 +156,7 @@ app.post("/login", (req, res) => {
 });
 
 app.post("/logout", (req, res) => {
-  res.clearCookie('username');
+  res.clearCookie('user_id');
   res.redirect('/urls');
 });
 
