@@ -22,6 +22,7 @@ const generateRandomString = () => {
   return randomURL.length > GENERATE_RANDOM_STRING_LENGTH ? randomURL.substring(0, GENERATE_RANDOM_STRING_LENGTH) : randomURL;
 };
 
+// Takes a email string and returns either an user object if found or null if not
 const getUserByEmail = (email) => {
   for (const user in users) {
     if (Object.prototype.hasOwnProperty.call(users[user], "email") && users[user].email === email) {
@@ -32,6 +33,7 @@ const getUserByEmail = (email) => {
   return null;
 };
 
+// Takes a user object and a password string, returning true if password is correct and false otherwise
 const verifyPassword = (user, password) => {
   if (user !== null) {
     if (password === user.password) {
@@ -46,6 +48,9 @@ app.get("/", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
+  if (!req.cookies["user_id"]) {
+    res.redirect("/login");
+  }
   const user = req.cookies ? users[req.cookies["user_id"]] : undefined;
   const templateVars = {
     user
@@ -73,7 +78,12 @@ app.get("/urls", (req, res) => {
 });
 
 app.get("/u/:id", (req, res) => {
-  const longURL = urlDatabase[req.params.id];
+  const id = req.params.id;
+  if (!Object.prototype.hasOwnProperty.call(urlDatabase, id)) {
+    res.status(404).send("404 Error. Resource not found.");
+    return;
+  }
+  const longURL = urlDatabase[id];
   res.redirect(longURL);
 });
 
@@ -86,6 +96,9 @@ app.get("/hello", (req, res) => {
 });
 
 app.get("/register", (req, res) => {
+  if (req.cookies["user_id"]) {
+    res.redirect("/urls");
+  }
   const user = req.cookies ? users[req.cookies["user_id"]] : undefined;
   const templateVars = {
     user
@@ -94,6 +107,9 @@ app.get("/register", (req, res) => {
 });
 
 app.get("/login", (req, res) => {
+  if (req.cookies["user_id"]) {
+    res.redirect("/urls");
+  }
   const user = req.cookies ? users[req.cookies["user_id"]] : undefined;
   const templateVars = {
     user
@@ -132,12 +148,13 @@ app.post("/login", (req, res) => {
       const cookie = user.id;
       res.cookie('user_id', cookie);
       res.redirect('/urls');
+      return;
     } else {
-      res.status(403).send("Incorrect password!");
+      res.status(401).send("Incorrect password!");
       return;
     }
   }
-  res.status(403).send("No account found with that email");
+  res.status(400).send("No account found with that email");
   return;
 });
 
@@ -161,6 +178,10 @@ app.post("/urls/:id", (req, res) => {
 });
 
 app.post("/urls", (req, res) => {
+  if (!req.cookies["user_id"]) {
+    res.status(401).send("You must be logged in to shorten URLs!");
+    return;
+  }
   const shortURL = generateRandomString();
   const longURL = req.body.longURL;
   
