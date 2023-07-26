@@ -1,5 +1,6 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
+const bcrypt = require("bcryptjs");
 const app = express();
 const PORT = 8080; // default port 8080
 const GENERATE_RANDOM_STRING_LENGTH = 6;
@@ -42,7 +43,7 @@ const getUserByEmail = (email) => {
 // Takes a user object and a password string, returning true if password is correct and false otherwise
 const verifyPassword = (user, password) => {
   if (user !== null) {
-    if (password === user.password) {
+    if (bcrypt.compareSync(password, user.hashedPassword)) {
       return true;
     }
   }
@@ -157,6 +158,7 @@ app.get("/login", (req, res) => {
 app.post("/register", (req, res) => {
   const id = generateRandomString();
   const { email, password } = req.body;
+  const hashedPassword = bcrypt.hashSync(password, 10);
   
   if (email === "" || id === "") {
     res.status(400).send("<h1>Error occurred!</h1><p>Fields cannot be blank.</p>");
@@ -169,7 +171,7 @@ app.post("/register", (req, res) => {
   }
   
   const cookie = id;
-  users[id] = {id, email, password};
+  users[id] = {id, email, hashedPassword};
   res.cookie('user_id', cookie);
   res.redirect('/urls');
 });
