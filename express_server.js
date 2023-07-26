@@ -10,8 +10,14 @@ app.use(cookieParser());
 
 
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  "b2xVn2": {
+    longURL: "http://www.lighthouselabs.ca",
+    userID: "aJ48lW"
+  },
+  "9sm5xK": {
+    longURL: "http://www.google.com",
+    userID: "aJ48lW"
+  }
 };
 
 const users = {};
@@ -43,15 +49,28 @@ const verifyPassword = (user, password) => {
   return false;
 };
 
+// Takes an id string and returns an object containing all URL objects owned by that id
+const urlsForUser = (id) => {
+  let ownedURLS = {};
+  for (const url in urlDatabase) {
+    if (urlDatabase[url].userID === id) {
+      ownedURLS[url] = urlDatabase[url];
+    }
+  }
+  return ownedURLS;
+};
+
 app.get("/", (req, res) => {
   res.send("Hello!");
 });
 
 app.get("/urls/new", (req, res) => {
-  if (!req.cookies["user_id"]) {
+  const userID = req.cookies["user_id"];
+  if (!userID) {
     res.redirect("/login");
+    return;
   }
-  const user = req.cookies ? users[req.cookies["user_id"]] : undefined;
+  const user = req.cookies ? users[userID] : undefined;
   const templateVars = {
     user
   };
@@ -59,31 +78,47 @@ app.get("/urls/new", (req, res) => {
 });
 
 app.get("/urls/:id", (req, res) => {
-  const user = req.cookies ? users[req.cookies["user_id"]] : undefined;
+  const { id } = req.params;
+  const userID = req.cookies["user_id"];
+  const user = req.cookies ? users[userID] : undefined;
   const templateVars = {
     user,
-    id: req.params.id,
-    longURL: urlDatabase[req.params.id]
+    id,
+    longURL: urlDatabase[id].longURL
   };
   res.render("urls_show", templateVars);
 });
 
 app.get("/urls", (req, res) => {
-  const user = req.cookies ? users[req.cookies["user_id"]] : undefined;
+  const userID = req.cookies["user_id"];
+  if (!userID) {
+    res.status(401).send("<h1>Error occurred. </h1> <p>Must be logged in to view URLs!</p>");
+    return;
+  }
+  const user = req.cookies ? users[userID] : undefined;
   const templateVars = {
     user,
-    urls: urlDatabase
+    urls: urlsForUser(userID)
   };
   res.render("urls_index", templateVars);
 });
 
 app.get("/u/:id", (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
+  const userID = req.cookies["user_id"];
   if (!Object.prototype.hasOwnProperty.call(urlDatabase, id)) {
-    res.status(404).send("404 Error. Resource not found.");
+    res.status(404).send("<h1>Error occurred.</h1><p>Resource not found.</p>");
     return;
   }
-  const longURL = urlDatabase[id];
+  if (!userID) {
+    res.status(401).send("<h1>Error occurred. </h1> <p>Must be logged in to view URLs!</p>");
+    return;
+  }
+  if (urlDatabase[id].userID !== userID) {
+    res.status(401).send("<h1>Error occurred.</h1><p>URL doesn't belong to you!</p>");
+    return;
+  }
+  const longURL = urlDatabase[id].longURL;
   res.redirect(longURL);
 });
 
@@ -96,10 +131,11 @@ app.get("/hello", (req, res) => {
 });
 
 app.get("/register", (req, res) => {
-  if (req.cookies["user_id"]) {
+  const userID = req.cookies["user_id"];
+  if (userID) {
     res.redirect("/urls");
   }
-  const user = req.cookies ? users[req.cookies["user_id"]] : undefined;
+  const user = req.cookies ? users[userID] : undefined;
   const templateVars = {
     user
   };
@@ -107,10 +143,11 @@ app.get("/register", (req, res) => {
 });
 
 app.get("/login", (req, res) => {
-  if (req.cookies["user_id"]) {
+  const userID = req.cookies["user_id"];
+  if (userID) {
     res.redirect("/urls");
   }
-  const user = req.cookies ? users[req.cookies["user_id"]] : undefined;
+  const user = req.cookies ? users[userID] : undefined;
   const templateVars = {
     user
   };
@@ -118,18 +155,16 @@ app.get("/login", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
-  console.log(users);
   const id = generateRandomString();
-  const email = req.body.email;
-  const password = req.body.password;
+  const { email, password } = req.body;
   
   if (email === "" || id === "") {
-    res.status(400).send("Fields cannot be blank.");
+    res.status(400).send("<h1>Error occurred!</h1><p>Fields cannot be blank.</p>");
     return;
   }
 
   if (getUserByEmail(email) !== null) {
-    res.status(400).send("Email already in use!");
+    res.status(400).send("<h1>Error occurred!</h1><p>Email already in use!</p>");
     return;
   }
   
@@ -140,8 +175,7 @@ app.post("/register", (req, res) => {
 });
 
 app.post("/login", (req, res) => {
-  const email = req.body.email;
-  const password = req.body.password;
+  const { email, password } = req.body;
   const user = getUserByEmail(email);
   if (user !== null) {
     if (verifyPassword(user, password)) {
@@ -150,11 +184,11 @@ app.post("/login", (req, res) => {
       res.redirect('/urls');
       return;
     } else {
-      res.status(401).send("Incorrect password!");
+      res.status(401).send("<h1>Error occurred!</h1><p>Incorrect password!</p>");
       return;
     }
   }
-  res.status(400).send("No account found with that email");
+  res.status(400).send("<h1>Error occurred!</h1><p>No account found with that email.</p>");
   return;
 });
 
@@ -165,27 +199,57 @@ app.post("/logout", (req, res) => {
 
 
 app.post("/urls/:id/delete", (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
+  const userID = req.cookies["user_id"];
+  if (!Object.prototype.hasOwnProperty.call(urlDatabase, id)) {
+    res.status(404).send("<h1>Error occurred.</h1><p>Resource not found.</p>");
+    return;
+  }
+  if (!userID) {
+    res.status(401).send("<h1>Error occurred. </h1> <p>Must be logged in to delete URLs!</p>");
+    return;
+  }
+  if (urlDatabase[id].userID !== userID) {
+    res.status(401).send("<h1>Error occurred.</h1><p>URL doesn't belong to you!</p>");
+    return;
+  }
   delete urlDatabase[id];
   res.redirect("/urls");
 });
 
 app.post("/urls/:id", (req, res) => {
-  const id = req.params.id;
-  const longURL = req.body.longURL;
-  urlDatabase[id] = longURL;
+  const { id } = req.params;
+  const { longURL } = req.body;
+  const userID = req.cookies["user_id"];
+  if (!Object.prototype.hasOwnProperty.call(urlDatabase, id)) {
+    res.status(404).send("<h1>Error occurred.</h1><p>Resource not found.</p>");
+    return;
+  }
+  if (!userID) {
+    res.status(401).send("<h1>Error occurred. </h1> <p>Must be logged in to edit URLs!</p>");
+    return;
+  }
+  if (urlDatabase[id].userID !== userID) {
+    res.status(401).send("<h1>Error occurred.</h1><p>URL doesn't belong to you!</p>");
+    return;
+  }
+  urlDatabase[id].longURL = longURL;
   res.redirect("/urls");
 });
 
 app.post("/urls", (req, res) => {
-  if (!req.cookies["user_id"]) {
-    res.status(401).send("You must be logged in to shorten URLs!");
+  const userID = req.cookies["user_id"];
+  if (!userID) {
+    res.status(401).send("<h1>Error occurred!</h1><p>You must be logged in to shorten URLs! </p>");
     return;
   }
   const shortURL = generateRandomString();
-  const longURL = req.body.longURL;
-  
-  urlDatabase[shortURL] = longURL; // saves the longURL & shortURL
+  const { longURL } = req.body;
+
+  urlDatabase[shortURL] = { // saves the longURL & shortURL
+    longURL: longURL,
+    userID
+  };
   
   res.redirect(`/urls/${shortURL}`);
 });
