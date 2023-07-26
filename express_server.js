@@ -1,5 +1,5 @@
 const express = require("express");
-const cookieParser = require("cookie-parser");
+const cookieSession = require("cookie-session");
 const bcrypt = require("bcryptjs");
 const app = express();
 const PORT = 8080; // default port 8080
@@ -7,8 +7,13 @@ const GENERATE_RANDOM_STRING_LENGTH = 6;
 
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
+app.use(cookieSession({
+  name: 'session',
+  keys: ['top secret key'],
 
+  // Cookie Options
+  maxAge: 24 * 60 * 60 * 1000 // 24 hours
+}));
 
 const urlDatabase = {
   "b2xVn2": {
@@ -66,12 +71,12 @@ app.get("/", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
-  const userID = req.cookies["user_id"];
+  const userID = req.session.user_id;
   if (!userID) {
     res.redirect("/login");
     return;
   }
-  const user = req.cookies ? users[userID] : undefined;
+  const user = users[userID];
   const templateVars = {
     user
   };
@@ -80,8 +85,8 @@ app.get("/urls/new", (req, res) => {
 
 app.get("/urls/:id", (req, res) => {
   const { id } = req.params;
-  const userID = req.cookies["user_id"];
-  const user = req.cookies ? users[userID] : undefined;
+  const userID = req.session.user_id;
+  const user = users[userID];
   const templateVars = {
     user,
     id,
@@ -91,12 +96,12 @@ app.get("/urls/:id", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-  const userID = req.cookies["user_id"];
+  const userID = req.session.user_id;
   if (!userID) {
     res.status(401).send("<h1>Error occurred. </h1> <p>Must be logged in to view URLs!</p>");
     return;
   }
-  const user = req.cookies ? users[userID] : undefined;
+  const user = users[userID];
   const templateVars = {
     user,
     urls: urlsForUser(userID)
@@ -106,7 +111,7 @@ app.get("/urls", (req, res) => {
 
 app.get("/u/:id", (req, res) => {
   const { id } = req.params;
-  const userID = req.cookies["user_id"];
+  const userID = req.session.user_id;
   if (!Object.prototype.hasOwnProperty.call(urlDatabase, id)) {
     res.status(404).send("<h1>Error occurred.</h1><p>Resource not found.</p>");
     return;
@@ -132,11 +137,11 @@ app.get("/hello", (req, res) => {
 });
 
 app.get("/register", (req, res) => {
-  const userID = req.cookies["user_id"];
+  const userID = req.session.user_id;
   if (userID) {
     res.redirect("/urls");
   }
-  const user = req.cookies ? users[userID] : undefined;
+  const user = users[userID];
   const templateVars = {
     user
   };
@@ -144,11 +149,11 @@ app.get("/register", (req, res) => {
 });
 
 app.get("/login", (req, res) => {
-  const userID = req.cookies["user_id"];
+  const userID = req.session.user_id;
   if (userID) {
     res.redirect("/urls");
   }
-  const user = req.cookies ? users[userID] : undefined;
+  const user = users[userID];
   const templateVars = {
     user
   };
@@ -170,9 +175,8 @@ app.post("/register", (req, res) => {
     return;
   }
   
-  const cookie = id;
-  users[id] = {id, email, hashedPassword};
-  res.cookie('user_id', cookie);
+  users[id] = { id, email, hashedPassword };
+  req.session.user_id = id;
   res.redirect('/urls');
 });
 
@@ -181,8 +185,7 @@ app.post("/login", (req, res) => {
   const user = getUserByEmail(email);
   if (user !== null) {
     if (verifyPassword(user, password)) {
-      const cookie = user.id;
-      res.cookie('user_id', cookie);
+      req.session.user_id = user.id;
       res.redirect('/urls');
       return;
     } else {
@@ -195,14 +198,14 @@ app.post("/login", (req, res) => {
 });
 
 app.post("/logout", (req, res) => {
-  res.clearCookie('user_id');
+  req.session = null;
   res.redirect('/login');
 });
 
 
 app.post("/urls/:id/delete", (req, res) => {
   const { id } = req.params;
-  const userID = req.cookies["user_id"];
+  const userID = req.session.user_id;
   if (!Object.prototype.hasOwnProperty.call(urlDatabase, id)) {
     res.status(404).send("<h1>Error occurred.</h1><p>Resource not found.</p>");
     return;
@@ -222,7 +225,7 @@ app.post("/urls/:id/delete", (req, res) => {
 app.post("/urls/:id", (req, res) => {
   const { id } = req.params;
   const { longURL } = req.body;
-  const userID = req.cookies["user_id"];
+  const userID = req.session.user_id;
   if (!Object.prototype.hasOwnProperty.call(urlDatabase, id)) {
     res.status(404).send("<h1>Error occurred.</h1><p>Resource not found.</p>");
     return;
@@ -240,7 +243,7 @@ app.post("/urls/:id", (req, res) => {
 });
 
 app.post("/urls", (req, res) => {
-  const userID = req.cookies["user_id"];
+  const userID = req.session.user_id;
   if (!userID) {
     res.status(401).send("<h1>Error occurred!</h1><p>You must be logged in to shorten URLs! </p>");
     return;
