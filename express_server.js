@@ -1,11 +1,10 @@
 const express = require("express");
 const cookieSession = require("cookie-session");
 const methodOverride = require('method-override');
-const { getUserByEmail } = require('./helpers');
+const { getUserByEmail, generateRandomString, verifyPassword, urlsForUser } = require('./helpers');
 const bcrypt = require("bcryptjs");
 const app = express();
 const PORT = 8080; // default port 8080
-const GENERATE_RANDOM_STRING_LENGTH = 6;
 
 app.set("view engine", "ejs");
 app.use(methodOverride('_method'));
@@ -31,35 +30,13 @@ const urlDatabase = {
 
 const users = {};
 
-// Generates a random 6 digit alpha-numeric string
-const generateRandomString = () => {
-  const randomURL = Math.random().toString(36).slice(2);
-  return randomURL.length > GENERATE_RANDOM_STRING_LENGTH ? randomURL.substring(0, GENERATE_RANDOM_STRING_LENGTH) : randomURL;
-};
-
-// Takes a user object and a password string, returning true if password is correct and false otherwise
-const verifyPassword = (user, password) => {
-  if (user !== undefined) {
-    if (bcrypt.compareSync(password, user.hashedPassword)) {
-      return true;
-    }
-  }
-  return false;
-};
-
-// Takes an id string and returns an object containing all URL objects owned by that id
-const urlsForUser = (id) => {
-  let ownedURLS = {};
-  for (const url in urlDatabase) {
-    if (urlDatabase[url].userID === id) {
-      ownedURLS[url] = urlDatabase[url];
-    }
-  }
-  return ownedURLS;
-};
-
 app.get("/", (req, res) => {
-  res.send("Hello!");
+  const userID = req.session.user_id;
+  if (userID) {
+    res.redirect("/urls");
+  }
+
+  res.redirect("/login");
 });
 
 app.get("/urls/new", (req, res) => {
@@ -79,10 +56,25 @@ app.get("/urls/:id", (req, res) => {
   const { id } = req.params;
   const userID = req.session.user_id;
   const user = users[userID];
+  if (!urlDatabase[id]) {
+    res.status(404).send("<h1>Error occurred. </h1> <p>Resource not found!</p>");
+    return;
+  }
+  if (!userID) {
+    res.status(401).send("<h1>Error occurred. </h1> <p>Must be logged in to view URLs!</p>");
+    return;
+  }
+  if (userID !== urlDatabase[id].userID) {
+    res.status(403).send("<h1>Error occurred. </h1> <p>This URL doesn't belong to you!</p>");
+    return;
+  }
   const templateVars = {
     user,
     id,
-    longURL: urlDatabase[id].longURL
+    longURL: urlDatabase[id].longURL,
+    creationTime: urlDatabase[id].creationTime,
+    visitorCount: urlDatabase[id].visitorCount ? urlDatabase[id].visitorCount : 0,
+    visitorList: urlDatabase[id].visitorList ? urlDatabase[id].visitorList : []
   };
   res.render("urls_show", templateVars);
 });
@@ -96,7 +88,7 @@ app.get("/urls", (req, res) => {
   const user = users[userID];
   const templateVars = {
     user,
-    urls: urlsForUser(userID)
+    urls: urlsForUser(userID, urlDatabase)
   };
   res.render("urls_index", templateVars);
 });
@@ -104,19 +96,21 @@ app.get("/urls", (req, res) => {
 app.get("/u/:id", (req, res) => {
   const { id } = req.params;
   const userID = req.session.user_id;
-  if (!Object.prototype.hasOwnProperty.call(urlDatabase, id)) {
+  const date = new Date();
+
+  if (!urlDatabase[id]) {
     res.status(404).send("<h1>Error occurred.</h1><p>Resource not found.</p>");
     return;
   }
-  if (!userID) {
-    res.status(401).send("<h1>Error occurred. </h1> <p>Must be logged in to view URLs!</p>");
-    return;
-  }
-  if (urlDatabase[id].userID !== userID) {
-    res.status(401).send("<h1>Error occurred.</h1><p>URL doesn't belong to you!</p>");
-    return;
-  }
+
   const longURL = urlDatabase[id].longURL;
+  urlDatabase[id]["visitorCount"] = urlDatabase[id]["visitorCount"] ? urlDatabase[id]["visitorCount"] : 0;
+  urlDatabase[id].visitorCount++;
+  urlDatabase[id]["visitorList"] = urlDatabase[id]["visitorList"] ? urlDatabase[id]["visitorList"] : [];
+
+  if (!urlDatabase[id].visitorList.includes(userID)) {
+    urlDatabase[id].visitorList.push({ userID, date });
+  }
   res.redirect(longURL);
 });
 
@@ -155,9 +149,8 @@ app.get("/login", (req, res) => {
 app.post("/register", (req, res) => {
   const id = generateRandomString();
   const { email, password } = req.body;
-  const hashedPassword = bcrypt.hashSync(password, 10);
   
-  if (email === "" || id === "") {
+  if (email === "" || password === "") {
     res.status(400).send("<h1>Error occurred!</h1><p>Fields cannot be blank.</p>");
     return;
   }
@@ -166,7 +159,8 @@ app.post("/register", (req, res) => {
     res.status(400).send("<h1>Error occurred!</h1><p>Email already in use!</p>");
     return;
   }
-  
+
+  const hashedPassword = bcrypt.hashSync(password, 10);
   users[id] = { id, email, hashedPassword };
   req.session.user_id = id;
   res.redirect('/urls');
@@ -194,11 +188,29 @@ app.post("/logout", (req, res) => {
   res.redirect('/login');
 });
 
+app.post("/urls", (req, res) => {
+  const userID = req.session.user_id;
+  const creationTime = new Date();
+  if (!userID) {
+    res.status(401).send("<h1>Error occurred!</h1><p>You must be logged in to shorten URLs! </p>");
+    return;
+  }
+  const shortURL = generateRandomString();
+  const { longURL } = req.body;
+
+  urlDatabase[shortURL] = { // saves the longURL & shortURL
+    longURL,
+    userID,
+    creationTime
+  };
+  
+  res.redirect(`/urls/${shortURL}`);
+});
 
 app.delete("/urls/:id/delete", (req, res) => {
   const { id } = req.params;
   const userID = req.session.user_id;
-  if (!Object.prototype.hasOwnProperty.call(urlDatabase, id)) {
+  if (!urlDatabase[id]) {
     res.status(404).send("<h1>Error occurred.</h1><p>Resource not found.</p>");
     return;
   }
@@ -218,7 +230,7 @@ app.put("/urls/:id", (req, res) => {
   const { id } = req.params;
   const { longURL } = req.body;
   const userID = req.session.user_id;
-  if (!Object.prototype.hasOwnProperty.call(urlDatabase, id)) {
+  if (!urlDatabase[id]) {
     res.status(404).send("<h1>Error occurred.</h1><p>Resource not found.</p>");
     return;
   }
@@ -227,28 +239,11 @@ app.put("/urls/:id", (req, res) => {
     return;
   }
   if (urlDatabase[id].userID !== userID) {
-    res.status(401).send("<h1>Error occurred.</h1><p>URL doesn't belong to you!</p>");
+    res.status(403).send("<h1>Error occurred.</h1><p>URL doesn't belong to you!</p>");
     return;
   }
   urlDatabase[id].longURL = longURL;
   res.redirect("/urls");
-});
-
-app.post("/urls", (req, res) => {
-  const userID = req.session.user_id;
-  if (!userID) {
-    res.status(401).send("<h1>Error occurred!</h1><p>You must be logged in to shorten URLs! </p>");
-    return;
-  }
-  const shortURL = generateRandomString();
-  const { longURL } = req.body;
-
-  urlDatabase[shortURL] = { // saves the longURL & shortURL
-    longURL: longURL,
-    userID
-  };
-  
-  res.redirect(`/urls/${shortURL}`);
 });
 
 app.listen(PORT, () => {
