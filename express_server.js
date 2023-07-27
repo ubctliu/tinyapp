@@ -1,5 +1,6 @@
 const express = require("express");
 const cookieSession = require("cookie-session");
+const methodOverride = require('method-override');
 const { getUserByEmail } = require('./helpers');
 const bcrypt = require("bcryptjs");
 const app = express();
@@ -7,6 +8,7 @@ const PORT = 8080; // default port 8080
 const GENERATE_RANDOM_STRING_LENGTH = 6;
 
 app.set("view engine", "ejs");
+app.use(methodOverride('_method'));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieSession({
   name: 'session',
@@ -193,7 +195,7 @@ app.post("/logout", (req, res) => {
 });
 
 
-app.post("/urls/:id/delete", (req, res) => {
+app.delete("/urls/:id/delete", (req, res) => {
   const { id } = req.params;
   const userID = req.session.user_id;
   if (!Object.prototype.hasOwnProperty.call(urlDatabase, id)) {
@@ -212,7 +214,7 @@ app.post("/urls/:id/delete", (req, res) => {
   res.redirect("/urls");
 });
 
-app.post("/urls/:id", (req, res) => {
+app.put("/urls/:id", (req, res) => {
   const { id } = req.params;
   const { longURL } = req.body;
   const userID = req.session.user_id;
