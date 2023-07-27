@@ -1,5 +1,6 @@
 const express = require("express");
 const cookieSession = require("cookie-session");
+const { getUserByEmail } = require('./helpers');
 const bcrypt = require("bcryptjs");
 const app = express();
 const PORT = 8080; // default port 8080
@@ -34,20 +35,9 @@ const generateRandomString = () => {
   return randomURL.length > GENERATE_RANDOM_STRING_LENGTH ? randomURL.substring(0, GENERATE_RANDOM_STRING_LENGTH) : randomURL;
 };
 
-// Takes a email string and returns either an user object if found or null if not
-const getUserByEmail = (email) => {
-  for (const user in users) {
-    if (Object.prototype.hasOwnProperty.call(users[user], "email") && users[user].email === email) {
-      return users[user];
-    }
-  }
-
-  return null;
-};
-
 // Takes a user object and a password string, returning true if password is correct and false otherwise
 const verifyPassword = (user, password) => {
-  if (user !== null) {
+  if (user !== undefined) {
     if (bcrypt.compareSync(password, user.hashedPassword)) {
       return true;
     }
@@ -170,7 +160,7 @@ app.post("/register", (req, res) => {
     return;
   }
 
-  if (getUserByEmail(email) !== null) {
+  if (getUserByEmail(email) !== undefined) {
     res.status(400).send("<h1>Error occurred!</h1><p>Email already in use!</p>");
     return;
   }
@@ -182,8 +172,8 @@ app.post("/register", (req, res) => {
 
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
-  const user = getUserByEmail(email);
-  if (user !== null) {
+  const user = getUserByEmail(email, users);
+  if (user !== undefined) {
     if (verifyPassword(user, password)) {
       req.session.user_id = user.id;
       res.redirect('/urls');
