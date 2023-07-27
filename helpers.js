@@ -1,4 +1,3 @@
-const GENERATE_RANDOM_STRING_LENGTH = 6;
 const bcrypt = require("bcryptjs");
 
 // Takes a email string and returns either an user object if found or undefined if not
@@ -12,10 +11,10 @@ const getUserByEmail = (email, database) => {
   return undefined;
 };
 
-// Generates a random 6 digit alpha-numeric string
-const generateRandomString = () => {
+// Generates a random alpha-numeric string of n length
+const generateRandomString = (length) => {
   const randomURL = Math.random().toString(36).slice(2);
-  return randomURL.length > GENERATE_RANDOM_STRING_LENGTH ? randomURL.substring(0, GENERATE_RANDOM_STRING_LENGTH) : randomURL;
+  return randomURL.length > length ? randomURL.substring(0, length) : randomURL;
 };
 
 // Takes a user object and a password string, returning true if password is correct and false otherwise

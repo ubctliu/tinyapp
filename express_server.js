@@ -1,10 +1,11 @@
 const express = require("express");
 const cookieSession = require("cookie-session");
 const methodOverride = require('method-override');
-const { getUserByEmail, generateRandomString, verifyPassword, urlsForUser } = require('./helpers');
 const bcrypt = require("bcryptjs");
+const { getUserByEmail, generateRandomString, verifyPassword, urlsForUser } = require('./helpers');
+const { PORT, USER_ID_LENGTH } = require('./constants');
+
 const app = express();
-const PORT = 8080; // default port 8080
 
 app.set("view engine", "ejs");
 app.use(methodOverride('_method'));
@@ -17,17 +18,7 @@ app.use(cookieSession({
   maxAge: 24 * 60 * 60 * 1000 // 24 hours
 }));
 
-const urlDatabase = {
-  "b2xVn2": {
-    longURL: "http://www.lighthouselabs.ca",
-    userID: "aJ48lW"
-  },
-  "9sm5xK": {
-    longURL: "http://www.google.com",
-    userID: "aJ48lW"
-  }
-};
-
+const urlDatabase = {};
 const users = {};
 
 app.get("/", (req, res) => {
@@ -35,7 +26,6 @@ app.get("/", (req, res) => {
   if (userID) {
     res.redirect("/urls");
   }
-
   res.redirect("/login");
 });
 
@@ -46,9 +36,7 @@ app.get("/urls/new", (req, res) => {
     return;
   }
   const user = users[userID];
-  const templateVars = {
-    user
-  };
+  const templateVars = { user };
   res.render("urls_new", templateVars);
 });
 
@@ -114,23 +102,13 @@ app.get("/u/:id", (req, res) => {
   res.redirect(longURL);
 });
 
-app.get("/urls.json", (req, res) => {
-  res.json(urlDatabase);
-});
-
-app.get("/hello", (req, res) => {
-  res.send("<html><body>Hello <b>World</b></body></html>\n");
-});
-
 app.get("/register", (req, res) => {
   const userID = req.session.user_id;
   if (userID) {
     res.redirect("/urls");
   }
   const user = users[userID];
-  const templateVars = {
-    user
-  };
+  const templateVars = { user };
   res.render("register", templateVars);
 });
 
@@ -140,14 +118,12 @@ app.get("/login", (req, res) => {
     res.redirect("/urls");
   }
   const user = users[userID];
-  const templateVars = {
-    user
-  };
+  const templateVars = { user };
   res.render("login", templateVars);
 });
 
 app.post("/register", (req, res) => {
-  const id = generateRandomString();
+  const id = generateRandomString(USER_ID_LENGTH);
   const { email, password } = req.body;
   
   if (email === "" || password === "") {
@@ -184,7 +160,7 @@ app.post("/login", (req, res) => {
 });
 
 app.post("/logout", (req, res) => {
-  req.session = null;
+  req.session = null; // clear session cookies
   res.redirect('/login');
 });
 
@@ -195,15 +171,13 @@ app.post("/urls", (req, res) => {
     res.status(401).send("<h1>Error occurred!</h1><p>You must be logged in to shorten URLs! </p>");
     return;
   }
-  const shortURL = generateRandomString();
+  const shortURL = generateRandomString(USER_ID_LENGTH);
   const { longURL } = req.body;
-
-  urlDatabase[shortURL] = { // saves the longURL & shortURL
+  urlDatabase[shortURL] = {  // add url to database
     longURL,
     userID,
     creationTime
   };
-  
   res.redirect(`/urls/${shortURL}`);
 });
 
@@ -247,5 +221,5 @@ app.put("/urls/:id", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Example app listening on port ${PORT}!`);
+  console.log(`Tinyapp listening on port ${PORT}!`);
 });
